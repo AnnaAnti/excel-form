@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Форма заполнения Excel (Лист 2)</title>
+  <style>
+    body {
+      font-family: Segoe UI, Roboto, Arial, sans-serif;
+      background-color: #f7f9ff;
+      color: #0044cc; /* 💙 основной синий цвет текста */
+      margin: 30px;
+    }
+    h1 {
+      text-align: center;
+      color: #003399;
+      margin-bottom: 20px;
+    }
+    fieldset {
+      border: 2px solid #99bbff;
+      background-color: #ffffff;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    legend {
+      font-weight: bold;
+      color: #002a80;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 10px;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #99bbff;
+      border-radius: 5px;
+      box-sizing: border-box;
+      color: #000;
+    }
+    .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .row-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    button {
+      background-color: #0044cc;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover { background-color: #003399; }
+    .actions { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+    .msg {
+      padding: 10px;
+      background-color: #e6eeff;
+      border-left: 4px solid #0044cc;
+      border-radius: 5px;
+      margin-bottom: 16px;
+      text-align: center;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <h1>Форма заполнения (Лист 2)</h1>
+  <div id="status" class="msg">Загрузка данных…</div>
+
+  <form id="excelForm" style="display:none">
+    <fieldset>
+      <legend>Данные карты</legend>
+      <label>Владелец карты</label>
+      <select id="card_owner" required></select>
+
+      <label>Помощник</label>
+      <select id="assistant" required></select>
+    </fieldset>
+
+    <fieldset>
+      <legend>Ресторан и адрес</legend>
+      <label>Ресторан</label>
+      <input id="restaurant" type="text" required />
+      <label>Адрес</label>
+      <input id="address" type="text" required />
+    </fieldset>
+
+    <fieldset>
+      <legend>Чек 1</legend>
+      <div class="row">
+        <div><label>Номер чека</label><input id="check1_number" required /></div>
+        <div><label>Дата чека</label><input id="check1_date" type="text" placeholder="дд.мм.гггг" required /></div>
+        <div><label>Время (десятичное)</label><input id="check1_time_decimal" type="number" step="0.1" required /></div>
+      </div>
+      <label>Сумма чека</label>
+      <input id="check1_sum" type="number" step="0.01" required />
+    </fieldset>
+
+    <fieldset>
+      <legend>Чек 2</legend>
+      <div class="row-4">
+        <div><label>Номер чека</label><input id="check2_number" /></div>
+        <div><label>Дата чека</label><input id="check2_date" type="text" placeholder="дд.мм.гггг" /></div>
+        <div><label>Время (десятичное)</label><input id="check2_time_decimal" type="number" step="0.1" /></div>
+        <div><label>Сумма чека</label><input id="check2_sum" type="number" step="0.01" /></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Данные участника</legend>
+      <label>Компания участник</label><input id="company" />
+      <label>Цель</label><input id="goal" />
+      <label>Тема</label><input id="topic" />
+      <label>Итоги</label><input id="totals" />
+    </fieldset>
+
+    <fieldset>
+      <legend>Гости</legend>
+      <div class="row-4">
+        <div><label>ФИО 1</label><input id="g1_fio" /></div>
+        <div><label>Должность 1</label><input id="g1_pos" /></div>
+        <div><label>ФИО 2</label><input id="g2_fio" /></div>
+        <div><label>Должность 2</label><input id="g2_pos" /></div>
+      </div>
+      <div class="row-4">
+        <div><label>ФИО 3</label><input id="g3_fio" /></div>
+        <div><label>Должность 3</label><input id="g3_pos" /></div>
+        <div><label>ФИО 4</label><input id="g4_fio" /></div>
+        <div><label>Должность 4</label><input id="g4_pos" /></div>
+      </div>
+      <div class="row-4">
+        <div><label>ФИО 5</label><input id="g5_fio" /></div>
+        <div><label>Должность 5</label><input id="g5_pos" /></div>
+      </div>
+    </fieldset>
+
+    <div class="actions">
+      <button type="submit">Сохранить в книгу</button>
+      <button type="button" id="download">Скачать книгу</button>
+    </div>
+  </form>
+
+  <script>
+    const API = 'http://127.0.0.1:8000';
+    const statusBox = document.getElementById('status');
+    const form = document.getElementById('excelForm');
+
+    function show(msg){ statusBox.textContent = msg; }
+
+    async function loadOptions() {
+      try {
+        const r = await fetch(API + '/api/options');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const data = await r.json();
+        document.getElementById('card_owner').innerHTML = data.owners.map(v => `<option>${v}</option>`).join('');
+        document.getElementById('assistant').innerHTML  = data.assistants.map(v => `<option>${v}</option>`).join('');
+        show('Готово. Заполните форму и нажмите «Сохранить в книгу».');
+        form.style.display = '';
+      } catch (e) {
+        show('Ошибка соединения: ' + e.message);
+      }
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = {
+        card_owner: card_owner.value,
+        assistant: assistant.value,
+        restaurant: restaurant.value,
+        address: address.value,
+        check1_number: check1_number.value,
+        check1_date: check1_date.value,
+        check1_time_decimal: parseFloat(check1_time_decimal.value),
+        check1_sum: parseFloat(check1_sum.value),
+        check2_number: check2_number.value,
+        check2_date: check2_date.value,
+        check2_time_decimal: check2_time_decimal.value ? parseFloat(check2_time_decimal.value) : null,
+        check2_sum: check2_sum.value ? parseFloat(check2_sum.value) : null,
+        company: company.value,
+        goal: goal.value,
+        topic: topic.value,
+        totals: totals.value,
+        guests: [
+          { fio: g1_fio.value, position: g1_pos.value },
+          { fio: g2_fio.value, position: g2_pos.value },
+          { fio: g3_fio.value, position: g3_pos.value },
+          { fio: g4_fio.value, position: g4_pos.value },
+          { fio: g5_fio.value, position: g5_pos.value }
+        ]
+      };
+      try {
+        const r = await fetch(API + '/api/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const p = await r.json();
+        alert(`Сохранено!\nA14 = ${p.b15_from}\nC26 = ${p.b27_from}`);
+      } catch (e) {
+        alert('Ошибка: ' + e.message);
+      }
+    });
+
+    document.getElementById('download').addEventListener('click', () => {
+      window.location.href = API + '/download';
+    });
+
+    loadOptions();
+  </script>
+</body>
+</html>
